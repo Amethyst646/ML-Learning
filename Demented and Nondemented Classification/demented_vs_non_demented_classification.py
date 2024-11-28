@@ -26,8 +26,6 @@ This project involves developing a Machine Learning model to classify patients a
   - `Model Evaluation`: Evaluating and giving assesment on model accuracy and effectiveness using several evaluation metrics.
   - `Model Deployment`: Deploying the model to make prediction in a production setting.
 
-##**A. Data Collection**
-
 To begin, we must first import the necessary libraries. Each library modules will be deployed throughout the model development according to their function and use, as follows:
 
 `Numpy`, `Pandas`, `Pickle`, `Matplotlib`, `Seaborn`, `Random`, `Scikit-learn`
@@ -43,8 +41,13 @@ import random
 
 from sklearn.experimental import enable_iterative_imputer
 from sklearn.impute import IterativeImputer
+from sklearn.preprocessing import RobustScaler
+from sklearn.model_selection import train_test_split
 
-"""Now that we have declared each of the important libraries, we can finally start loading the dataset. Here, we will transform the dataset file we have from a .csv file into a readable format using **pd.read_csv**:"""
+"""##**A. Data Collection**
+
+Now that we have declared each of the important libraries, we can finally start loading the dataset. Here, we will transform the dataset file we have from a .csv file into a readable format using **pd.read_csv**:
+"""
 
 pdDS = pd.read_csv('/content/DementedvsNonDemented.csv')
 
@@ -54,9 +57,7 @@ DS = pdDS.copy()
 
 """Once done, now we can take a look at the dataframe we have and gain initial insight on the data types of our variables."""
 
-DS.head(3)
-
-DS.tail(3)
+DS
 
 """Dataset Variable details:
 
@@ -67,7 +68,7 @@ DS.tail(3)
 |**Subject ID**|**Subject Identification (i.e. OAS2_0001)**|**Categorical Nominal**|
 |**MRI ID**|**MRI Exam Identification (i.e. OAS2_0001_MR1)**|**Categorical Nominal**|
 |**Group**|**Class (i.e. Demented, Nondemented)**|**Categorical Nominal**|
-|**Visit**|**Number of visits (i.e. 1-5)**|**Ordinal Categorical**|
+|**Visit**|**Number of visits (i.e. 1-5)**|**Categorical Ordinal**|
 |**MR Delay**|**Number of days of delay between visits (i.e. 0-2639)**|**Numerical Discrete**|
 |**M/F**|**Gender (i.e. M, F)**|**Categorical Nominal**|
 |**Hand**|**Right or Left-Handed (i.e. R)**|**Categorical Nominal**|
@@ -85,32 +86,35 @@ DS.info()
 
 DS.describe()
 
-#Check which variable contain missing value ('NaN')
-for i, var in enumerate(DS):
-  if any(DS.iloc[:,i].isnull()):
-    print(var, DS.iloc[:,i].isnull().sum())
+"""##**B. Data Preprocessing**
 
-DS.nunique()
-
-"""From here we can see that ....
+From here we can see that ....
 
 Furthermore, duplicate....
 """
 
 DS.duplicated().sum()
 
-"""##**B. Data Preprocessing**
+DS.nunique()
 
-Based on the previous section, we now know that our dataset contain several missing values. To identify the category of missing values, we can filtered the dataframe to display only the data's with NaN values:
-"""
+"""Drop uncorrelated: `Subject ID`, `MRI ID`, and `Hand`. both subject ID and MRI ID were dropped due to their inherent value being a unique code for each patients and MRI scans, something which does not have any particular meaning related to Dementia. The Hand variable meanwhile, only have 1 unique value, as seen above, and will not be able to provide any information or variability for the model to learn from."""
+
+DS = DS.drop(columns=['MRI ID', 'Hand'])
+
+#Check which variable contain missing value ('NaN')
+for i, var in enumerate(DS):
+  if any(DS.iloc[:,i].isnull()):
+    print(var, DS.iloc[:,i].isnull().sum())
+
+"""Based on the previous section, we now know that our dataset contain several missing values. To identify the category of missing values, we can filtered the dataframe to display only the data's with NaN values:"""
 
 DS[DS.isnull().any(axis=1)]
 
-"""The filtered dataframe provided the necessary insights efficiently. Out of the 15 columns, only two--SES and MMSE--contain  missing values. The SES column has a total of 19 missing entries, while MMSE has 2, representing approximately 5.1% and 0.5% of the total data, respectively. Further inspection revealed that many missing values originate from the same subject IDs, indicating that fewer subjects are responsible for the missing values than initialy appeared.
+"""The filtered dataframe provided the necessary insights efficiently. Out of the 12 columns, only two--SES and MMSE--contain  missing values. The SES column has a total of 19 missing entries, while MMSE has 2, representing approximately 5.1% and 0.5% of the total data, respectively. Further inspection revealed that many missing values originate from the same subject IDs, indicating that fewer subjects are responsible for the missing values than initialy appeared.
 
 Closer examination on the variable details uncovered key insight that defined the category of the missing values. The column SES pertains to the subject's economic condition, while the MMSE column reflects the subject's mental condition. Both variables are likely to be left blank for particular reasons such as the subject's reluctance to disclose this information.
 
-These insights combined indicate that the missing values falls under the category of MNAR (Missing Not At Random). Normally, missing values in this category require complex approaches to produce optimal inferences. However, to streamline the overall model development, methods such as multiple imputation (MI) can be applied using the following procedure to address these missing values.
+These insights combined indicate that the missing values falls under the category of **MNAR** (Missing Not At Random). Normally, missing values in this category require complex approaches to produce optimal inferences. However, to streamline the overall model development, methods such as **multiple imputation** (MI) can be applied using the following procedure to address these missing values.
 
 To impute the missing data, here we will employe the `IterativeImputer` function derived from `Scikit-learn`. This particular imputation method was chosen due to the inherent property of the missing data--Missing Not At Random (MNAR), as discussed previously. This imputation method will ensure sufficient interference computation to produce
 """
@@ -127,11 +131,20 @@ imputedDS['MMSE'] = round(imputedDS['MMSE'])
 
 imputedDS.head(5)
 
+DS.head()
+
 DS['SES'] = imputedDS['SES']
 DS['MMSE'] = imputedDS['MMSE']
 DS.head()
 
+"""Before we proceed to the next section, one last thing we must do is convert any value not categorized into 'Dementia' and 'Nondementia'. Because as we learned from the data information above, the 'Group' variable contained as many as 3 unique value. Hence, we need to change them into 'Dementia' first before we can proceed on exploratory data and other steps in this machine learning development.
+
+To do that, first we check the unique value within `Group` variable:
+"""
+
 DS['Group'].unique()
+
+"""As seen, the third value not fallen into either 'Demented' or 'Nondemented' is categorized as 'Converted'. This value, based on information from data source, refer to patients who was diagnosed as 'Demented' on a later date. In this project, due to inssuficient information, each Converted value will not be separated into 'Demented' and 'Nondemented' on each MRI Scans, and will instead be recategorized as 'Demented'"""
 
 DS.loc[DS['Group']=='Converted','Group'] = 'Demented'
 
@@ -139,22 +152,42 @@ DS['Group'].unique()
 
 """#**C. Exploratory Data Analysis (EDA)**"""
 
+col_DS = DS.columns
 print(len(DS.columns))
-DS.columns
+col_DS
 
 """### I. Histplot"""
 
-fig, axes = plt.subplots(3,2, figsize=(13,12))
+from matplotlib.patches import Rectangle
+
 col_hist = ['MR Delay', 'Age', 'MMSE', 'eTIV', 'nWBV', 'ASF']
+
+fig, axes = plt.subplots(3,2, figsize=(13,12))
 axes = axes.flatten()
 
 def random_color():
     return [random.random() for _ in range(3)]
 
 for i, var in enumerate(col_hist):
-  ax = axes[i]
-  sns.histplot(data=DS, x=var, ax=ax, kde=True,color=random_color(), edgecolor='black', bins=20)
-  ax.set_title(f'{var}')
+  std = np.std(DS[var])
+  mn = np.mean(DS[var])
+
+  sns.histplot(data=DS, x=var, ax=axes[i], kde=True,color=random_color(), edgecolor='black', bins=20)
+  axes[i].set_title(f'{var} Distribution Plot')
+  axes[i].set_xlabel(var)
+  axes[i].set_ylabel('Frequency')
+  axes[i].tick_params(labelrotation=35)
+
+  if var == 'MMSE':
+    x_y = (0.6,0.85)
+  else:
+    x_y = (0.7,0.85)
+
+  props = dict(boxstyle='round', edgecolor='black', facecolor='white')
+  axes[i].annotate(f'Standar Deviation\n{std:.2f}\nMean: {mn:.2f}', xy=x_y,
+                   xycoords="axes fraction", xytext=(8,8), textcoords="offset points",
+                   ha='left', va='top', bbox=props)
+
 
 for j in range(len(col_hist), len(axes)):
     axes[j].axis('off')
@@ -162,31 +195,39 @@ for j in range(len(col_hist), len(axes)):
 plt.tight_layout()
 plt.show()
 
-fig, axes = plt.subplots(2,1, figsize=(12,10))
-col_name = ['Subject ID','MRI ID']
-axes = axes.flatten()
-
-for i, var in enumerate(col_name):
-  ax = axes[i]
-  sns.histplot(DS.iloc[:,i], label=var,ax=ax, color=random_color(), edgecolor='black', bins=20)
-  ax.xaxis.set_visible(False)
-  ax.set_title(f'{var}')
-
 mrd = DS[DS['MR Delay']>0]
+
+std = np.std(DS['MR Delay'])
+mn = np.mean(DS['MR Delay'])
 
 plt.figure(figsize=(8,5))
 sns.histplot(mrd['MR Delay'], label='MR Delay', kde=True,color=random_color(), edgecolor='black', bins=20)
+plt.title('MR Delay Distribution Plot')
+plt.xlabel('MR Delay')
+plt.ylabel('Frequency')
+plt.tick_params(labelrotation=35)
+
+props = dict(boxstyle='round', edgecolor='black', facecolor='white')
+plt.annotate(f'Standar Deviation\n{std:.2f}\nMean: {mn:.2f}', xy=x_y,
+                   xycoords="axes fraction", xytext=(8,8), textcoords="offset points",
+                   ha='left', va='top', bbox=props)
+
+plt.tight_layout()
+plt.show()
 
 """### Countplot"""
 
-fig, axes = plt.subplots(4,2, figsize=(10,12))
-col_bar = ['Group', 'Visit', 'EDUC','M/F', 'MMSE', 'SES', 'CDR', 'Hand']
+col_bar = ['Group', 'Visit', 'EDUC','M/F', 'SES', 'CDR']
+
+fig, axes = plt.subplots(3,2, figsize=(10,12))
 axes = axes.flatten()
 
 for i, var in enumerate(col_bar):
-  ax = axes[i]
-  sns.countplot(x = var, data=DS, ax=ax,hue=var, palette='coolwarm')
-  ax.set_title(f'{var}')
+  sns.countplot(x = var, data=DS, ax=axes[i],hue=var, palette='coolwarm')
+  axes[i].set_title(f'{var} Count Distribution')
+  axes[i].set_xlabel(var)
+  axes[i].set_ylabel('Frequency')
+
 
 for j in range(len(col_bar), len(axes)):
     axes[j].axis('off')
@@ -194,49 +235,213 @@ for j in range(len(col_bar), len(axes)):
 plt.tight_layout()
 plt.show()
 
-"""### Corelation plot"""
+count = DS['MMSE'].value_counts().to_dict()
+
+palette = sns.color_palette('coolwarm')
+
+plt.figure(figsize=(7,7))
+
+plt.pie(count.values(), labels=count.keys(),colors=palette, autopct='%0.1f%%')
+
+plt.tight_layout()
+plt.show()
+
+"""#**Feature Engineering**"""
 
 Coded_DS = DS.copy()
-DS_to_convert = ['Subject ID', 'MRI ID', 'Group', 'M/F', 'Hand']
+DS_to_convert = ['Subject ID', 'Group', 'M/F']
 
 for col in DS_to_convert:
   Coded_DS[col] = Coded_DS[col].astype('category').cat.codes
 
-"""In the context of statistical analysis or model training (which we will explore later), certain datatypes cannot be transformed directly by methods like `IterativeImputer`. As indicated by the previous `.info()` output of our dataframe, several variables in our dataset are categorized as `object`. To resolve this issue, the code above effectively transforms the string values in each `object` column into representative nominal codes using the `cat.codes` function. This conversion facilitates proper handling of categorical data during the imputation process.
-
-The variables was succesfully transformed into nominal datatypes as shown below.
-"""
+Coded_DS = Coded_DS.groupby(['Subject ID']).mean()
+Coded_DS
 
 Coded_DS.info()
 
+"""###Outlier
+
+To check for outlier within out datasets, we can once again visit the number of unique values within each variables using the `.nunique()` function.
+"""
+
+Coded_DS.nunique()
+
+"""Based on the information above, we can infer that some variables such as Visit, M/F, EDUC, SES, MMSE, and CDR fall into the categorical columns type. Generally, this type of columns can be exempted from outlier detection. Thus, in this section, we will check for outliers from the remaining numerical columns: MR Delay, Age, eTIV, nWBV, and ASF."""
+
+copy = Coded_DS['Group'].copy()
+copy
+
+copy[copy==1] = 'Demented'
+copy[copy==0] = 'Nondemented'
+
+copy
+
+fig, axes = plt.subplots(3, 2, figsize=(14,12))
+axes = axes.flatten()
+DS_out = ['MR Delay', 'Age', 'eTIV', 'nWBV', 'ASF']
+
+
+for i, var in enumerate(DS_out):
+  ax=axes[i]
+  sns.boxplot(data=Coded_DS, x=var, y=copy, ax=ax, medianprops={'color':'r'}, flierprops={'marker':'x'})
+  ax.set_title(f'Group vs {var}')
+
+for j in range(len(DS_out),len(axes)):
+  axes[j].axis('off')
+
+plt.tight_layout()
+plt.show()
+
+"""as we can see, numerical columns such as MR Delay and eTIV shows the presence of outliers. Much more than the other columns. before proceeding to detecting the number of outliers. First, we must check for each column skewness type."""
+
+#Define skewness of each numerical column
+
+def check_skewness(df, cols):
+  normal = {}
+  skewed = {}
+  extremely_skewed = {}
+
+  for var in cols:
+    skew_score = round(df[var].skew(),2)
+    if skew_score <= 0.5:
+      normal[var] = skew_score
+    elif 0.5 < abs(skew_score) < 1:
+      skewed[var] = skew_score
+    else:
+      extremely_skewed[var] = skew_score
+
+  return normal, skewed, extremely_skewed
+
+normal, skewed, extremely_skewed = check_skewness(Coded_DS, DS_out)
+
+print(f'Normal: {normal}\nSkewed: {skewed}\nExtremely Skewed: {extremely_skewed}')
+
+#Find Outliers
+
+def check_outlier_percentage(df, skew_type, cols, distance=1.5):
+  for var in cols:
+    if skew_type == 'normal':
+      std = df[var].std()
+      mean = df[var].mean()
+      lower_bound = mean - (3 * std)
+      upper_bound = mean + (3 * std)
+    elif skew_type == 'skewed':
+      Q1 = df[var].quantile(0.25)
+      Q3 = df[var].quantile(0.75)
+      IQR = Q3-Q1
+      lower_bound = Q1 - (IQR * distance)
+      upper_bound = Q3 + (IQR * distance)
+
+    outliers = df[(df[var] < lower_bound) | (df[var] > upper_bound)]
+    outlier_percentage = len(outliers) / len(df) * 100
+    outlier_count = len(outliers)
+
+    print(f'Outlier Percentage and Count of {var}: {outlier_percentage:.2f}% and {outlier_count}')
+
+check_outlier_percentage(Coded_DS,'normal',normal.keys())
+check_outlier_percentage(Coded_DS,'skewed',skewed.keys())
+check_outlier_percentage(Coded_DS,'skewed',extremely_skewed.keys())
+
+"""- none of the normal column have any outlier
+- MRI Delay have normal outlier count and percentage. Moreover, the nature of
+"""
+
+distance = 1.5
+Q1 = Coded_DS['MR Delay'].quantile(0.25)
+Q3 = Coded_DS['MR Delay'].quantile(0.75)
+IQR = Q3-Q1
+lower_bound = Q1 - (IQR * distance)
+upper_bound = Q3 + (IQR * distance)
+
+print(f'lower bound: {lower_bound}, upper_bound: {upper_bound}')
+
+outlier = Coded_DS[(Coded_DS['MR Delay'] < lower_bound) | (Coded_DS['MR Delay'] > upper_bound)]
+outlier
+
+Q1 = Coded_DS['eTIV'].quantile(0.25)
+Q3 = Coded_DS['eTIV'].quantile(0.75)
+IQR = Q3-Q1
+lower_bound = Q1 - (IQR * distance)
+upper_bound = Q3 + (IQR * distance)
+
+print(f'lower bound: {lower_bound}, upper_bound: {upper_bound}')
+
+outlier = Coded_DS[(Coded_DS['eTIV'] < lower_bound) | (Coded_DS['eTIV'] > upper_bound)]
+outlier
+
+"""The presence of outlier, coupled with the nature of the MRI Delay value indicate the need for applying a transformation. Which will be addressed later on.
+
+Outlier Transformation with Winsorizer()
+"""
+
+pip install feature-engine
+
+from feature_engine.outliers import Winsorizer
+
+def winsorizer(df, variables, capping_method='iqr', tail='both', fold=1.5):
+  winsorizer = Winsorizer(capping_method=capping_method, tail=tail, fold=fold, variables=variables)
+  df_trained = winsorizer.fit_transform(df)
+  return df_trained
+
+Transformed_DS = winsorizer(Coded_DS, ['eTIV','MR Delay'])
+Transformed_DS.head()
+
+"""Re-check outlier"""
+
+check_outlier_percentage(Transformed_DS,'normal',normal.keys())
+check_outlier_percentage(Transformed_DS,'skewed',skewed.keys())
+check_outlier_percentage(Transformed_DS,'skewed',extremely_skewed.keys())
+
+"""### Corelation plot"""
+
 plt.figure(figsize=(12,6))
-corr = Coded_DS.drop(columns=['Hand']).corr()
+corr = Transformed_DS.corr()
 sns.heatmap(corr,annot=True,cmap='coolwarm')
 
-corr = Coded_DS.corr()
-row = corr.index
-corr_arr = []
-for i,var in enumerate(corr):
-  for j,val in enumerate(corr[var]):
-    if 0.4<abs(val)<0.99:
-      corr_arr.append([var,row[j],round(val,2)])
-
-corr_pd = pd.DataFrame(corr_arr,columns=['First Variable','Second Variable','Value'])
-
-corr_pd
-
-drop_duplicate = []
-for i in range(len(corr_pd)):
-  for j in range(i+1,len(corr_pd)):
-    if (corr_pd.iloc[i,0] == corr_pd.iloc[j,1]) and (corr_pd.iloc[i,1] == corr_pd.iloc[j,0]):
-      drop_duplicate.append(j)
-
-corr_pd = corr_pd.drop(drop_duplicate).reset_index(drop=True)
-
-corr_pd
+corr.loc[(0.2<=abs(corr['Group'])) & (abs(corr['Group'])<0.9), 'Group']
 
 """Based on the correlatio result above, we can assume that both `MMSE` and `CDR` has the most influence on `Group`. Other variables, on the other hand, doesn't display correlation as high as the two
 
 which we will
+
+### Imbalance Data Check
 """
 
+val = Transformed_DS['Group'].value_counts()
+val
+
+diff = (val[0] - val[1])/val[0]*100
+round(diff,2)
+
+"""Less than 10%
+
+### Feature Selection
+"""
+
+X = Transformed_DS.drop(columns=['Group'])
+Y = Transformed_DS['Group']
+x_train, x_test, y_train, y_test = train_test_split(X,Y,train_size=0.85,random_state=42, stratify=Y)
+
+x_train.shape, x_test.shape, y_train.shape, y_test.shape
+
+y_arr = [y_train.value_counts(), y_test.value_counts()]
+ypd = pd.DataFrame(y_arr,index=['Y_Train','Y_Test'])
+
+ypd
+
+#Checking missing value
+x_null = [x_train.isnull().sum(),x_test.isnull().sum()]
+xpd = pd.DataFrame(x_null, index=['x_train','x_test'])
+xpd
+
+y_train.isnull().sum()
+
+
+
+
+
+R_Scaler = RobustScaler()
+Scaled_DS = R_Scaler.fit_transform(Coded_DS.drop(columns=['Group']))
+Scaled_DSw = R_Scaler.fit_transform(Coded_DS.drop(columns='Group'))
+
+y_test.isnull().sum()
