@@ -25,7 +25,7 @@ This project involves developing a Machine Learning model to classify patients a
   - `Model Evaluation`: Evaluating and giving assesment on model accuracy and effectiveness using several evaluation metrics.
   - `Model Deployment`: Deploying the model to make prediction in a production setting.
 
-# **A. Importing Libraries**
+## **A. Importing Libraries**
 
 <justify>
 
@@ -39,7 +39,7 @@ In any model development, not only in machine learning, the initial step is to d
 Although their occurences are not as frequent as the libraries above, several other libraries such as `Random`, `Pickle`, and `XGboost` are also implemented in this model development.
 """
 
-# Install feature-engine library
+# Install feature-engine librry
 pip install feature-engine
 
 # Install phik library
@@ -71,14 +71,14 @@ from xgboost import XGBClassifier
 from sklearn.neural_network import MLPClassifier
 from sklearn.metrics import recall_score, precision_score, accuracy_score, f1_score, roc_auc_score, confusion_matrix, ConfusionMatrixDisplay
 
-"""# **B. Data Collection**
+"""## **B. Data Collection**
 
 The dataset acquired from Kaggle is stored in CSV format. To access the data, we can use the CSV reading function `pd.read_csv` provided by pandas.
 """
 
 pdDS = pd.read_csv('/content/DementedvsNonDemented.csv')
 
-"""Generally, as we manipulated data for analysis and then for model creation, there are possibilities of accidentally creating irreversible changes into the DataFrame we used. In that scenario, there are no other way except of starting over. An action which will take effort and time.
+"""Generally, as we manipulated data for analysis and then for model creation, there are possibilities of accidentally creating irreversible changes into the DataFrame we use. In that scenario, there are no other way except of starting over. An action which will take effort and time.
 
 To mitigate this possibility, we will utilize pandas copy function `.copy()`. This function created a duplication of the data we need and allow for an experiment without affecting the original data. This will prove useful in the long way.
 """
@@ -86,7 +86,7 @@ To mitigate this possibility, we will utilize pandas copy function `.copy()`. Th
 df = pdDS.copy()
 df
 
-"""The DataFrame above showed that we have succesfully loaded and copied the dataset. Based on the short information given, we have around 373 data (rows) complete with about 15 input features (columns).
+"""The DataFrame above showed that we have succesfully loaded and copied the dataset. Based on the short information given, we have around 373 data (rows) and about 15 input features (columns).
 
 To have better insight on the input features, below are the detailed descriptions along with their data types:
 
@@ -94,7 +94,7 @@ To have better insight on the input features, below are the detailed description
 
 |**Column Name**|**Description**|**Data Type**|
 |:---|:---|:---|
-|**Subject ID**|**Subject Identification (i.e. OAS2_0001)**|**Categorical Nominal**|*|
+|**Subject ID**|**Subject Identification (i.e. OAS2_0001)**|**Categorical Nominal**|
 |**MRI ID**|**MRI Exam Identification (i.e. OAS2_0001_MR1)**|**Categorical Nominal**|
 |**Group**|**Class (i.e. Demented, Nondemented)**|**Categorical Nominal**|
 |**Visit**|**Number of visits (i.e. 1-5)**|**Categorical Ordinal**|
@@ -115,24 +115,47 @@ The table above has provided us with each features data type. However, for bette
 
 df.info()
 
-"""Another information we can look into before proceeding onto the next stage is going through the data using the `.describe()` function. This function specifically offer us a comprehensive report on any feature with number. It shows us the exact count of the data, the lowest and highest value, along with its statistical data such as mean and standard deviation. This information gave us a hint on what to expect next. For example, the range value number varies between features, suggesting that in the later course we may need to implement a scaling transformation procedure to our data."""
+"""Another detail we can take note before proceeding onto the next stage is by examining the data using the `.describe()` function. This function specifically offer us a comprehensive report on any feature with number. It showed us the exact count of the data, the lowest and highest value, along with its statistical data such as mean and standard deviation. This information gave us a hint on what to expect next. For example, the range value number varies between features, suggesting that in the later course we may need to implement a scaling transformation procedure into our data."""
 
 df.describe()
 
-"""# **C. Data Preprocessing**
+"""## **C. Data Cleaning**
 
-From here we can see that ....
+**i. Duplication and Unique Value check**
 
-Furthermore, duplicate....
+In the data preprocessing, there are several steps that we can execute. The first include inspecting for any duplicated value within our data. This is quite important, since the presence of a duplicate in our data without proper cleaning may result in our credibility and affect the validity of our result.
+
+To check for any duplicated data, we can make use of the `.duplicated()` function. To simplify and count the exact number of possible duplicated data, we can further add the `.sum()` function.
 """
 
 df.duplicated().sum()
 
+"""The second step in this stage of Data Cleaning include assessing the unique value of each features. Utilizing the `.nunique()` to automatically count the number of value unique to that feature."""
+
 df.nunique()
 
-"""Drop uncorrelated: `Subject ID`, `MRI ID`, and `Hand`. both subject ID and MRI ID were dropped due to their inherent value being a unique code for each patients and MRI scans, something which does not have any particular meaning related to Dementia. The Hand variable meanwhile, only have 1 unique value, as seen above, and will not be able to provide any information or variability for the model to learn from."""
+"""The unique value assessment has proven fruitful. While on the previous step we found no duplicated data, here, we unexpectedly discovered many features with numerous unique value contained within. Some (e.g., `eTIV`, `nWBV`, `Age`, `MR Delay` and `ASF`) were expected due to their nature as a Numerical Discrete data type. While some other (e.g., `Visit`, `M/F`, `EDUC`, `SES`, `MMSE`, `CDR`) have considerably less unique value due to their Categorical data type.
 
-df = df.drop(columns=['MRI ID', 'Hand'])
+Among the 15 features, 11 have valid reasons that explained this occurence. The remaining four features, on the other hand, showed signs of requiring a data cleaning process. The first two features: `Subject ID` and `MRI ID` have 150 and 373 unique value, respectively. Both features, as the name suggests, functioned as the dataset unique identifier. A value which will not provide insight nor contribute to model prediction later on. It will however, help us in aggregating our dataset in the future section. Thus, one of the feature, namely the `Subject ID` feature, will be kept in our current dataframe. While the other, `MRI ID`, will be dropped.
+"""
+
+df = df.drop(columns=['MRI ID'])
+
+"""Next, the third feature to be dropped is the `Hand` feature. As seen from the list above, this feature contained only one unique value. Indicating no further insight could be extracted."""
+
+df = df.drop(columns=['Hand'])
+
+"""The last feature, `Group`, are both surprising and predictable. The feature itself, being our target prediction, supposed to have only two unique values: **Demented** and **Nondemented**. Instead, the list told us this feature contained three unique values (see the code output below). The extra unique value came from the dataset inherent nature, i.e., a longitudinal data where some patients initially not diagnosed as dementia but on later visits were re-diagnosed as dementia."""
+
+df['Group'].unique()
+
+"""To remedy this incident, we can convert the extra class into the **Demented** class. The fact that the patients within this class eventually diagnosed with dementia indicates that their data contain dementia-related indicator, providing valuable insight."""
+
+df.loc[df['Group']=='Converted','Group'] = 'Demented'
+
+df['Group'].unique()
+
+"""**ii. Missing Value Handling**"""
 
 #Check which variable contain missing value ('NaN')
 for i, var in enumerate(df):
@@ -173,17 +196,11 @@ df.head()
 """Before we proceed to the next section, one last thing we must do is convert any value not categorized into 'Dementia' and 'Nondementia'. Because as we learned from the data information above, the 'Group' variable contained as many as 3 unique value. Hence, we need to change them into 'Dementia' first before we can proceed on exploratory data and other steps in this machine learning development.
 
 To do that, first we check the unique value within `Group` variable:
+
+As seen, the third value not fallen into either 'Demented' or 'Nondemented' is categorized as 'Converted'. This value, based on information from data source, refer to patients who was diagnosed as 'Demented' on a later date. In this project, due to inssuficient information, each Converted value will not be separated into 'Demented' and 'Nondemented' on each MRI Scans, and will instead be recategorized as 'Demented'
+
+## **D. Exploratory Data Analysis (EDA)**
 """
-
-df['Group'].unique()
-
-"""As seen, the third value not fallen into either 'Demented' or 'Nondemented' is categorized as 'Converted'. This value, based on information from data source, refer to patients who was diagnosed as 'Demented' on a later date. In this project, due to inssuficient information, each Converted value will not be separated into 'Demented' and 'Nondemented' on each MRI Scans, and will instead be recategorized as 'Demented'"""
-
-df.loc[df['Group']=='Converted','Group'] = 'Demented'
-
-df['Group'].unique()
-
-"""# **D. Exploratory Data Analysis (EDA)**"""
 
 col_df = df.columns
 print(len(df.columns))
@@ -277,7 +294,7 @@ plt.pie(count.values(), labels=count.keys(),colors=palette, autopct='%0.1f%%')
 plt.tight_layout()
 plt.show()
 
-"""# **E. Feature Engineering**"""
+"""## **E. Feature Engineering**"""
 
 df_copy = df.copy().drop(columns='Visit')
 df_to_convert = ['Subject ID', 'Group', 'M/F']
@@ -507,7 +524,7 @@ print('Selected features: ', selected_col)
 rfe_selected_df = phik_selected_df.drop(columns=['MR Delay', 'eTIV'])
 rfe_selected_df.columns
 
-"""# **F. Model Development**
+"""## **F. Model Development**
 
 #### Scaling Transformation
 """
@@ -637,7 +654,7 @@ eval_scores = report(eval_scores, y_test, y_pred_test, 'Test Set Result')
 
 pd.DataFrame(eval_scores)
 
-"""# **G. Model Deployment**"""
+"""## **G. Model Deployment**"""
 
 with open('dt_model.pkl','wb') as file:
   pickle.dump(dt_pipe,file)
